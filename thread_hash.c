@@ -26,6 +26,7 @@ void loppy(char * password);
 int main(int argc, char *argv[])
 {
     int opt = -1;
+    int n = 0;
     int num_threads = 1;
     char *input_file = NULL;
     char *dictionary_file = NULL;
@@ -60,7 +61,11 @@ int main(int argc, char *argv[])
             case 'i':
             {
                 input_file = optarg;
-
+            }
+            break;
+            case 'n':
+            {
+                n = 1;
             }
             break;
             case 'o':
@@ -71,6 +76,9 @@ int main(int argc, char *argv[])
                 break;
 
         }
+    }
+     if(n == 1){
+        nice(10);
     }
 
     parse_text(dictionary_file); 
@@ -92,8 +100,7 @@ int main(int argc, char *argv[])
         pthread_join(threads[i], NULL);
     }
     //get_next_row();
-
-    return EXIT_SUCCESS;
+       return EXIT_SUCCESS;
 }
 
 
