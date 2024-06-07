@@ -32,9 +32,11 @@ typedef enum hash_algorithm_e {
     FOREACH_ALGORITHM(GENERATE_ENUM)
 } hash_algorithm_t;
 
+/*
 static const char *algorithm_string[] = {
     FOREACH_ALGORITHM(GENERATE_STRING)
 };
+*/
 
 typedef struct {
     int algorithm_counts[ALGORITHM_MAX];
