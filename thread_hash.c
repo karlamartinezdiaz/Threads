@@ -11,7 +11,9 @@
 
 static char *password_lines[BUF_SIZE];
 static char *text_lines[BUF_SIZE];
+//int algo_count_per_thread[ALGORITHM_MAX] = {0};
 static int algo_count[ALGORITHM_MAX] = {0};
+static int total_count = 0;
 //static char *crypt_password = NULL;
 static int num_password_lines = 0;
 static int num_text_lines = 0;
@@ -22,7 +24,7 @@ void *compare(void *arg);
 void create_thread(int num_threads);
 int get_next_row(void);
 double elapse_time(struct timeval *, struct timeval *);
-void loppy(char * password, FILE *out_file);
+void loppy(char * password, FILE *out_file, int algo_count_per_thread[]);
 
 int main(int argc, char *argv[])
 {
@@ -102,8 +104,8 @@ int main(int argc, char *argv[])
     for (int i = 0; i < num_threads; i++)
     {
         pthread_join(threads[i], NULL);
-    }
-    
+        fprintf(stderr, "thread: %lu", threads[i]);
+   }
     for(hash_algorithm_t i = DES; i < ALGORITHM_MAX; i++)
     {
         fprintf(stderr, "%15s: %5d  ", algorithm_string[i], algo_count[i]);
@@ -205,9 +207,10 @@ void parse_text(const char *filename){
     free(file_stuff);
 }
 
-void loppy(char * password, FILE *out_file){
+void loppy(char * password, FILE *out_file, int algo_count_per_thread[]){
     struct crypt_data crypt_ob;
     char * crypt_password = NULL;
+    static pthread_mutex_t loppy_lock = PTHREAD_MUTEX_INITIALIZER;
     memset(&crypt_ob, 0, sizeof(crypt_ob));
     strncpy(crypt_ob.setting, password, CRYPT_OUTPUT_SIZE);
     for(int j = 0; j < num_text_lines; j++){
@@ -215,37 +218,49 @@ void loppy(char * password, FILE *out_file){
         crypt_password = crypt_rn(text_lines[j], password, &crypt_ob, sizeof(crypt_ob));
         if(crypt_password != NULL){
             if(strcmp(crypt_password, password) == 0){
+                pthread_mutex_lock(&loppy_lock);
                 if(password[DES] != '$'){
                     algo_count[DES]+=1;
+                    algo_count_per_thread[DES]+=1;
                 }
                 else if(password[1] == '3'){
                     algo_count[NT]+=1;
+                    algo_count_per_thread[NT]+=1;
                 }
                 else if(password[1] == '1'){
                     algo_count[MD5]+=1;
+                    algo_count_per_thread[MD5]+=1;
                 }
                 else if(password[1] == '5'){
                     algo_count[SHA256]+=1;
+                    algo_count_per_thread[SHA256]+=1;
                 }
                 else if(password[1] == '6'){
                     algo_count[SHA512]+=1;
+                    algo_count_per_thread[SHA512]+=1;
                 }
                 else if(password[1] == 'y'){
                     algo_count[YESCRYPT]+=1;
+                    algo_count_per_thread[YESCRYPT]+=1;
                 }
                 else if(password[1] == 'g'){
                     algo_count[GOST_YESCRYPT]+=1;
+                    algo_count_per_thread[GOST_YESCRYPT]+=1;
                 }
                 else if(password[2] == 'b'){
                     algo_count[BCRYPT]+=1;
+                    algo_count_per_thread[BCRYPT]+=1;
                 }
 
                 if(out_file){
                     fprintf(out_file, "cracked  %s  %s\n", text_lines[j], password);
                 }
                 else{
-                    printf("cracked  %s  %s\n", text_lines[j], password);
+                    fprintf(stdout, "cracked  %s  %s\n", text_lines[j], password);
                 }
+                ++total_count;
+                pthread_mutex_unlock(&loppy_lock);
+                //Might need a mutex lock for now 
                 break;
             }
         }
@@ -255,14 +270,26 @@ void loppy(char * password, FILE *out_file){
 //compare password that crypt rn returns and the password I passed in 
 void *compare(void *arg){
     int i = 0;
+    int tot_count_per_thread = 0;
+    int algo_count_per_thread[ALGORITHM_MAX] = {0};
+    static pthread_mutex_t compare_lock = PTHREAD_MUTEX_INITIALIZER;
     FILE *out_file = (FILE *)arg; 
     do{
         i = get_next_row();
         if(i < num_password_lines){
-            loppy(password_lines[i], out_file);
+            loppy(password_lines[i], out_file, algo_count_per_thread);
         }
 
     } while(i < num_password_lines);
+    pthread_mutex_lock(&compare_lock);
+    tot_count_per_thread = 0;
+    for(hash_algorithm_t j = DES; j < ALGORITHM_MAX; j++)
+    {
+        fprintf(stderr, "%15s: %5d  ", algorithm_string[j], algo_count_per_thread[j]);
+        tot_count_per_thread+= algo_count_per_thread[j];
+    }
+    fprintf(stderr, "total: %8d\n", tot_count_per_thread);
+    pthread_mutex_unlock(&compare_lock);
     pthread_exit(NULL);
 }
 
