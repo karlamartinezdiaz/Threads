@@ -21,21 +21,19 @@ void *compare(void *arg);
 void create_thread(int num_threads);
 int get_next_row(void);
 double elapse_time(struct timeval *, struct timeval *);
-void loppy(char * password);
+void loppy(char * password, FILE *out_file);
 
 int main(int argc, char *argv[])
 {
     int opt = -1;
     int n = 0;
     int num_threads = 1;
+    int output_trigger = 0;
     char *input_file = NULL;
     char *dictionary_file = NULL;
-    
+    char *output_file = NULL;
+    FILE * out_file = NULL;
     pthread_t * threads = NULL;
-    //thread_stats_t *stats;
-    //struct timeval start, end;
-    //double total_elapsed;
-    //char *output_file = NULL;
 
     while((opt = getopt(argc, argv, OPTIONS)) != -1)
     {
@@ -69,7 +67,10 @@ int main(int argc, char *argv[])
             }
             break;
             case 'o':
-                //output_file = optarg;
+            {
+                output_trigger = 1;
+                output_file = optarg;
+            }
                 break;
             case 'd':
                 dictionary_file = optarg;
@@ -80,27 +81,34 @@ int main(int argc, char *argv[])
      if(n == 1){
         nice(10);
     }
-
+    if(output_trigger == 1){
+        out_file = fopen(output_file, "a");
+        if(out_file == NULL){
+            perror("error opening output file");
+            exit(EXIT_FAILURE);
+        }
+    }
     parse_text(dictionary_file); 
     parse_password(input_file);
 
-    //pthread_t threads[num_threads];
-    //thread_stats_t stats[num_threads];
-    //compare();
-
     threads = malloc(num_threads * sizeof(pthread_t));
-    
+
     for (int i = 0; i < num_threads; i++)
     {
-        pthread_create(&threads[i], NULL, compare, NULL);
+        pthread_create(&threads[i], NULL, compare, (void *)out_file);
     }
 
     for (int i = 0; i < num_threads; i++)
     {
         pthread_join(threads[i], NULL);
     }
+    if(out_file){
+        fclose(out_file);
+    }
+
     //get_next_row();
-       return EXIT_SUCCESS;
+    free(threads);
+    return EXIT_SUCCESS;
 }
 
 
@@ -190,18 +198,22 @@ void parse_text(const char *filename){
     free(file_stuff);
 }
 
-void loppy(char * password){
+void loppy(char * password, FILE *out_file){
     struct crypt_data crypt_ob;
     char * crypt_password = NULL;
     memset(&crypt_ob, 0, sizeof(crypt_ob));
     strncpy(crypt_ob.setting, password, CRYPT_OUTPUT_SIZE);
     for(int j = 0; j < num_text_lines; j++){
-
         strncpy(crypt_ob.input, text_lines[j], CRYPT_MAX_PASSPHRASE_SIZE);
         crypt_password = crypt_rn(text_lines[j], password, &crypt_ob, sizeof(crypt_ob));
         if(crypt_password != NULL){
             if(strcmp(crypt_password, password) == 0){
-                printf("cracked %s\t%s\n", text_lines[j], password);
+                if(out_file){
+                    fprintf(out_file, "cracked  %s  %s\n", text_lines[j], password);
+                }
+                else{
+                    printf("cracked  %s  %s\n", text_lines[j], password);
+                }
                 break;
             }
         }
@@ -211,43 +223,15 @@ void loppy(char * password){
 //compare password that crypt rn returns and the password I passed in 
 void *compare(void *arg){
     int i = 0;
-    
+    FILE *out_file = (FILE *)arg; 
     do{
         i = get_next_row();
         if(i < num_password_lines){
-            loppy(password_lines[i]);
+            loppy(password_lines[i], out_file);
         }
 
     } while(i < num_password_lines);
-
-
-
-    
-    /*
-    while(get_next_row() < num_password_lines){
-        memset(&crypt_ob, 0, sizeof(crypt_ob));
-
-        if(password_lines[i] == NULL || text_lines[i] == NULL){
-            fprintf(stderr, "Arrays empty\n");
-            continue;
-        }
-
-        strncpy(crypt_ob.setting, password_lines[i], CRYPT_OUTPUT_SIZE);
-        for(int j = 0; j < num_text_lines; j++){
-            strncpy(crypt_ob.input, text_lines[j], CRYPT_MAX_PASSPHRASE_SIZE);
-            crypt_password = crypt_rn(text_lines[j], password_lines[i], &crypt_ob, sizeof(crypt_ob));
-            if(strcmp(crypt_password, password_lines[i]) == 0){
-                printf("cracked %s\t%s\n", text_lines[j], password_lines[i]);
-                break;
-            }
-        }
-
-        ++i;
-    }
-
-        */
     pthread_exit(NULL);
-    //return NULL;
 }
 
 int get_next_row(void){
