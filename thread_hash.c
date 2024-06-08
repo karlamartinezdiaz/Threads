@@ -38,6 +38,7 @@ int main(int argc, char *argv[])
     int n = 0;
     int num_threads = 1;
     int output_trigger = 0;
+    int verbose = 0;
     double time  = 0.0;
     char *input_file = NULL;
     char *dictionary_file = NULL;
@@ -84,12 +85,36 @@ int main(int argc, char *argv[])
             case 'd':
                 dictionary_file = optarg;
                 break;
+            case 'v':
+            {
+                verbose = 1;
+            }
+            break;
+            default: 
+                fprintf(stderr, "oopsie - unrecognized command line option \"%s\" \n", argv[optind]);
+            break;
 
         }
     }
-     if(n == 1){
+    if(verbose == 1){
+        fprintf(stderr, "Verbose enabled\n");
+
+    }
+
+    if(dictionary_file == NULL)
+    {
+        fprintf(stderr, "must give name for dictionary input file with -d\n");
+        exit(EXIT_FAILURE);
+    }
+    if(input_file == NULL){
+        fprintf(stderr, "must give name for hashed password input file with -i\n");
+        exit(EXIT_FAILURE);
+    }
+
+    if(n == 1){
         nice(10);
     }
+
     if(output_trigger == 1){
         out_file = fopen(output_file, "a");
         if(out_file == NULL){
