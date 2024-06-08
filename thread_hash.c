@@ -17,6 +17,10 @@ static int total_count = 0;
 //static char *crypt_password = NULL;
 static int num_password_lines = 0;
 static int num_text_lines = 0;
+static FILE * out_file = NULL;
+
+struct timeval t5;
+struct timeval t6;
 
 void parse_password(const char *filename);
 void parse_text(const char *filename);
@@ -24,7 +28,9 @@ void *compare(void *arg);
 void create_thread(int num_threads);
 int get_next_row(void);
 double elapse_time(struct timeval *, struct timeval *);
-void loppy(char * password, FILE *out_file, int algo_count_per_thread[]);
+void loppy(char * password, int algo_count_per_thread[]);
+
+
 
 int main(int argc, char *argv[])
 {
@@ -32,10 +38,10 @@ int main(int argc, char *argv[])
     int n = 0;
     int num_threads = 1;
     int output_trigger = 0;
+    double time  = 0.0;
     char *input_file = NULL;
     char *dictionary_file = NULL;
     char *output_file = NULL;
-    FILE * out_file = NULL;
     pthread_t * threads = NULL;
 
     while((opt = getopt(argc, argv, OPTIONS)) != -1)
@@ -94,22 +100,28 @@ int main(int argc, char *argv[])
     parse_text(dictionary_file); 
     parse_password(input_file);
 
+    
     threads = malloc(num_threads * sizeof(pthread_t));
-
+    gettimeofday(&t5, NULL);
     for (int i = 0; i < num_threads; i++)
     {
-        pthread_create(&threads[i], NULL, compare, (void *)out_file);
+        int *a = malloc(sizeof(int));
+        *a = i;
+        pthread_create(&threads[i], NULL, compare, a);
     }
 
     for (int i = 0; i < num_threads; i++)
     {
         pthread_join(threads[i], NULL);
-        fprintf(stderr, "thread: %lu", threads[i]);
-   }
+    }
+    gettimeofday(&t6, NULL);
+    time = elapse_time(&t5, &t6);
+    fprintf(stderr, "total: %3d %8.2lf sec  ", num_threads, time);
     for(hash_algorithm_t i = DES; i < ALGORITHM_MAX; i++)
     {
         fprintf(stderr, "%15s: %5d  ", algorithm_string[i], algo_count[i]);
     }
+    fprintf(stderr, "total: %8d\n", total_count);
 
     if(out_file){
         fclose(out_file);
@@ -207,7 +219,7 @@ void parse_text(const char *filename){
     free(file_stuff);
 }
 
-void loppy(char * password, FILE *out_file, int algo_count_per_thread[]){
+void loppy(char * password, int algo_count_per_thread[]){
     struct crypt_data crypt_ob;
     char * crypt_password = NULL;
     static pthread_mutex_t loppy_lock = PTHREAD_MUTEX_INITIALIZER;
@@ -259,6 +271,7 @@ void loppy(char * password, FILE *out_file, int algo_count_per_thread[]){
                     fprintf(stdout, "cracked  %s  %s\n", text_lines[j], password);
                 }
                 ++total_count;
+                
                 pthread_mutex_unlock(&loppy_lock);
                 //Might need a mutex lock for now 
                 break;
@@ -269,20 +282,28 @@ void loppy(char * password, FILE *out_file, int algo_count_per_thread[]){
 
 //compare password that crypt rn returns and the password I passed in 
 void *compare(void *arg){
+    struct timeval t3;
+    struct timeval t4;
+    int k = *(int *)arg;
     int i = 0;
+    double time = 0.0;
     int tot_count_per_thread = 0;
     int algo_count_per_thread[ALGORITHM_MAX] = {0};
     static pthread_mutex_t compare_lock = PTHREAD_MUTEX_INITIALIZER;
-    FILE *out_file = (FILE *)arg; 
+    //FILE *out_file = (FILE *)arg; 
+    gettimeofday(&t3, NULL);
     do{
         i = get_next_row();
         if(i < num_password_lines){
-            loppy(password_lines[i], out_file, algo_count_per_thread);
+            loppy(password_lines[i], algo_count_per_thread);
         }
 
     } while(i < num_password_lines);
+    gettimeofday(&t4, NULL);
+    time = elapse_time(&t3, &t4);
     pthread_mutex_lock(&compare_lock);
     tot_count_per_thread = 0;
+    fprintf(stderr, "thread: %2d %8.2lf sec  ", k, time);
     for(hash_algorithm_t j = DES; j < ALGORITHM_MAX; j++)
     {
         fprintf(stderr, "%15s: %5d  ", algorithm_string[j], algo_count_per_thread[j]);
@@ -309,7 +330,6 @@ double elapse_time(struct timeval *t0, struct timeval *t1){
                 / MICROSECONDS_PER_SECOND)
         + ((double) (t1->tv_sec - t0->tv_sec));
     return et;
-
 }
 
 
