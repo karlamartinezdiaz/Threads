@@ -123,12 +123,24 @@ int main(int argc, char *argv[])
     }
     fprintf(stderr, "total: %8d\n", total_count);
 
+    //get_next_row();
+    free(threads);
+
+    for(int i = 0; i < num_password_lines; i++){
+        free(password_lines[i]);
+    }
+
+    for(int i = 0; i < num_text_lines; i++){
+        free(text_lines[i]);
+    }
+
     if(out_file){
         fclose(out_file);
     }
-
-    //get_next_row();
-    free(threads);
+    input_file = NULL;
+    dictionary_file = NULL;
+    output_file = NULL;
+    threads = NULL;
     return EXIT_SUCCESS;
 }
 
@@ -311,6 +323,7 @@ void *compare(void *arg){
     }
     fprintf(stderr, "total: %8d\n", tot_count_per_thread);
     pthread_mutex_unlock(&compare_lock);
+    free(arg);
     pthread_exit(NULL);
 }
 
