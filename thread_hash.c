@@ -11,6 +11,7 @@
 
 static char *password_lines[BUF_SIZE];
 static char *text_lines[BUF_SIZE];
+static int algo_count[ALGORITHM_MAX] = {0};
 //static char *crypt_password = NULL;
 static int num_password_lines = 0;
 static int num_text_lines = 0;
@@ -102,6 +103,12 @@ int main(int argc, char *argv[])
     {
         pthread_join(threads[i], NULL);
     }
+    
+    for(hash_algorithm_t i = DES; i < ALGORITHM_MAX; i++)
+    {
+        fprintf(stderr, "%15s: %5d  ", algorithm_string[i], algo_count[i]);
+    }
+
     if(out_file){
         fclose(out_file);
     }
@@ -208,6 +215,31 @@ void loppy(char * password, FILE *out_file){
         crypt_password = crypt_rn(text_lines[j], password, &crypt_ob, sizeof(crypt_ob));
         if(crypt_password != NULL){
             if(strcmp(crypt_password, password) == 0){
+                if(password[DES] != '$'){
+                    algo_count[DES]+=1;
+                }
+                else if(password[1] == '3'){
+                    algo_count[NT]+=1;
+                }
+                else if(password[1] == '1'){
+                    algo_count[MD5]+=1;
+                }
+                else if(password[1] == '5'){
+                    algo_count[SHA256]+=1;
+                }
+                else if(password[1] == '6'){
+                    algo_count[SHA512]+=1;
+                }
+                else if(password[1] == 'y'){
+                    algo_count[YESCRYPT]+=1;
+                }
+                else if(password[1] == 'g'){
+                    algo_count[GOST_YESCRYPT]+=1;
+                }
+                else if(password[2] == 'b'){
+                    algo_count[BCRYPT]+=1;
+                }
+
                 if(out_file){
                     fprintf(out_file, "cracked  %s  %s\n", text_lines[j], password);
                 }
