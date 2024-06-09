@@ -63,7 +63,12 @@ int main(int argc, char *argv[])
             case 't':
                 num_threads = atoi(optarg);
                 if(num_threads <= 0){
-                    num_threads = 1;
+                    fprintf(stderr, "invalid thread count %d\n", num_threads);
+                    exit(EXIT_FAILURE);
+                }
+                if(num_threads > 24){
+                    fprintf(stderr, "invalid thread count %d\n", num_threads);
+                    exit(EXIT_FAILURE);
                 }
                 break;
             case 'i':
@@ -98,7 +103,6 @@ int main(int argc, char *argv[])
     }
     if(verbose == 1){
         fprintf(stderr, "Verbose enabled\n");
-
     }
 
     if(dictionary_file == NULL)
